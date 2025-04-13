@@ -66,8 +66,9 @@ The study employed multiple statistical approaches to analyze the survey data:
 
 ## Repository Structure
 
-- **analysis/** - R markdown analysis files
+- **analysis/** - R code and analysis files
   - Analyzing Factors Affecting Online Learning Experience.Rmd - Analysis of online learning experience
+  - FINAL PROJECT.r - Main R script for project analysis
   - Time Allocation Patterns and Well-Being.Rmd - Analysis of time allocation and health outcomes
   - placeholder.md - Placeholder file
 - **dataset/** - Data files
