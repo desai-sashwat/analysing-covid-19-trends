@@ -1,0 +1,42 @@
+# R Version
+r>=4.1.0
+
+# Core packages
+tidyverse>=1.3.0
+ggplot2>=3.3.5
+knitr>=1.33
+rmarkdown>=2.10
+
+# Statistical analysis
+car>=3.0-12
+MASS>=7.3-54
+vcd>=1.4-8
+nnet>=7.3-16
+effects>=4.2-0
+caret>=6.0-90
+
+# Data visualization
+corrplot>=0.90
+gridExtra>=2.3
+scales>=1.1.1
+
+# Working with categorical data
+forcats>=0.5.1
+
+# Data manipulation
+dplyr>=1.0.7
+tidyr>=1.1.3
+purrr>=0.3.4
+readr>=2.0.1
+stringr>=1.4.0
+
+# HTML output
+htmltools>=0.5.2
+htmlwidgets>=1.5.4
+
+# Extra utilities
+lubridate>=1.7.10      # Date handling
+viridis>=0.6.1         # Color palettes
+RColorBrewer>=1.1-2    # Color palettes
+ggthemes>=4.2.4        # ggplot themes
+reshape2>=1.4.4        # Data reshaping
