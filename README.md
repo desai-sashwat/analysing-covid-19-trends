@@ -65,17 +65,17 @@ The study employed multiple statistical approaches to analyze the survey data:
 - Minimal regional differences in social media usage patterns
 
 ## Repository Structure
-analysing-covid-19-trends/
-├── analysis/                 # R markdown analysis files
-│   ├── Time Allocation Patterns and Well-Being.Rmd            # Analysis of time allocation and health outcomes
-│   ├── Analyzing Factors Affecting Online Learning Experience.Rmd  # Analysis of online learning experience
-│   └── placeholder.md         # Placeholder file
-├── dataset/                  # Data files
-│   ├── COVID-19 Survey Student Responses.csv   # Original survey data from 1,182 students
-│   └── placeholder.md         # Placeholder file
-├── requirements.txt          # Required R packages and dependencies
-├── LICENSE                   # MIT License
-└── README.md                 # Project documentation
+
+- **analysis/** - R markdown analysis files
+  - Time Allocation Patterns and Well-Being.Rmd - Analysis of time allocation and health outcomes
+  - Analyzing Factors Affecting Online Learning Experience.Rmd - Analysis of online learning experience
+  - placeholder.md - Placeholder file
+- **dataset/** - Data files
+  - COVID-19 Survey Student Responses.csv - Original survey data from 1,182 students
+  - placeholder.md - Placeholder file
+- **requirements.txt** - Required R packages and dependencies
+- LICENSE - MIT License
+- README.md - Project documentation
 
 ## Future Work
 - Longitudinal studies to track changes over time
