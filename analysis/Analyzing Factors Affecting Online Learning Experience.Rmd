@@ -1,0 +1,184 @@
+---
+title: "Analyzing-Factors-Affecting-Online-Learning-Experience"
+author: "Sashwat Desai"
+date: "2025-02-25"
+output: html_document
+---
+
+```{r Clear Environment}
+rm(list = ls())
+```
+
+## Loading the necessary libraries
+
+```{r Libraries}
+library(tidyverse)      # Data manipulation and visualization
+library(corrplot)       # Correlation visualization
+library(car)            # For VIF calculations
+library(caret)          # For model training and evaluation
+library(knitr)          # For tables in final report
+library(ggplot2)        # Advanced plotting
+library(effects)        # For plotting effects
+```
+
+## [1] DATA LOADING AND PREPARATION
+
+```{r Data Loading and Preparation}
+# Load the data
+covid_data <- read.csv("COVID-19 Survey Student Responses.csv", header = TRUE)
+
+# Inspect the structure
+str(covid_data)
+summary(covid_data)
+
+# Convert rating to an ordinal factor (assuming it has values like "Poor", "Average", "Good", etc.)
+# Check unique values first
+unique(covid_data$`Rating.of.Online.Class.experience`)
+
+# Convert to ordinal factor - adjust levels based on actual data
+covid_data$class_rating <- factor(covid_data$`Rating.of.Online.Class.experience`, 
+                                 levels = c("Poor", "Below Average", "Average", "Good", "Excellent"), 
+                                 ordered = TRUE)
+
+# Convert medium to factor
+covid_data$medium <- as.factor(covid_data$`Medium.for.online.class`)
+
+# Check for missing values
+colSums(is.na(covid_data))
+
+# Remove rows with missing values in key variables
+model_data <- covid_data %>%
+  select(class_rating, 
+         Age.of.Subject, 
+         Time.spent.on.Online.Class, 
+         medium,
+         Time.spent.on.self.study,
+         Time.spent.on.sleep,
+         Region.of.residence) %>%
+  drop_na()
+```
+
+## [2] EXPLORATORY DATA ANALYSIS
+
+```{r Exploratory Data Analysis}
+# Distribution of class rating
+ggplot(model_data, aes(x = class_rating)) +
+  geom_bar(fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Distribution of Online Class Experience Ratings",
+       x = "Rating", y = "Count")
+
+# Relationship between time spent in online class and rating
+ggplot(model_data, aes(x = class_rating, y = Time.spent.on.Online.Class)) +
+  geom_boxplot(fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Time Spent in Online Class by Rating",
+       x = "Rating", y = "Hours")
+
+# Correlation matrix of numeric variables
+numeric_vars <- model_data %>%
+  select(Time.spent.on.Online.Class, Time.spent.on.self.study, 
+         Time.spent.on.sleep, Age.of.Subject)
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+corrplot(cor_matrix, method = "circle")
+```
+
+## [3] MODEL BUILDING
+
+```{r Model Building}
+# For ordinal logistic regression
+library(MASS)
+
+# Convert class_rating to numeric for linear regression
+# Alternative approach: use ordered logistic regression with original factor
+model_data$rating_numeric <- as.numeric(model_data$class_rating)
+
+# Linear regression model
+lm_model <- lm(rating_numeric ~ Age.of.Subject + Time.spent.on.Online.Class + 
+               medium + Time.spent.on.self.study + Time.spent.on.sleep + 
+               Region.of.residence, data = model_data)
+
+# Summary of model
+summary(lm_model)
+
+# Check for multicollinearity
+vif(lm_model)
+```
+
+## [4] MODEL DIAGNOSTICS
+
+```{r Model Diagnostics}
+# Residual plots
+par(mfrow = c(2, 2))
+plot(lm_model)
+par(mfrow = c(1, 1))
+```
+
+## [5] ORDINAL REGRESSION (Better for Ordinal Response)
+
+```{r Ordinal Regression}
+# This is more appropriate since rating is ordinal
+ordinal_model <- polr(class_rating ~ Age.of.Subject + Time.spent.on.Online.Class + 
+                     medium + Time.spent.on.self.study + Time.spent.on.sleep + 
+                     Region.of.residence, data = model_data, Hess = TRUE)
+
+summary(ordinal_model)
+
+# Convert to p-values (since polr doesn't provide them directly)
+ctable <- coef(summary(ordinal_model))
+p_values <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable <- cbind(ctable, "p value" = p_values)
+print(ctable)
+```
+
+## [6] EFFECTS PLOTS
+
+```{r Effects Plots}
+# Plot the effect of key predictors
+plot(effect("Time.spent.on.Online.Class", ordinal_model), 
+     main = "Effect of Time Spent on Online Class")
+plot(effect("Time.spent.on.self.study", ordinal_model), 
+     main = "Effect of Self Study Time")
+```
+
+## [7] FINAL VISUALIZATION
+
+```{r Final Visualization}
+# Create a cleaner effects plot for the report
+ggplot(model_data, aes(x = Time.spent.on.Online.Class, y = as.numeric(class_rating))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess", se = TRUE) +
+  theme_minimal() +
+  labs(title = "Relationship Between Time in Online Classes and Satisfaction",
+       x = "Hours Spent on Online Classes per Day",
+       y = "Rating (1=Poor, 5=Excellent)")
+```
+
+## [8] ANOVA TABLE
+
+```{r ANOVA Table}
+anova_table <- anova(lm_model)
+print(anova_table)
+kable(anova_table, caption = "ANOVA Table for Predictors of Online Learning Satisfaction")
+```
+
+## [9] SAVING RESULTS
+
+```{r Saving Results}
+# Create a formatted coefficient table
+coef_table <- as.data.frame(ctable)
+write.csv(coef_table, "ordinal_model_coefficients.csv")
+
+# Summary statistics by medium
+medium_summary <- model_data %>%
+  group_by(medium) %>%
+  summarise(
+    avg_rating = mean(rating_numeric, na.rm = TRUE),
+    sd_rating = sd(rating_numeric, na.rm = TRUE),
+    count = n()
+  )
+write.csv(medium_summary, "rating_by_medium.csv")
+
+anova <- aov(Time.spent.on.self.study ~ Change.in.your.weight, data = covid_data)
+summary(anova)
+```

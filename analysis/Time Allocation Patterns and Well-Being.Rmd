@@ -1,0 +1,350 @@
+---
+title: "Time Allocation Patterns and Well-Being"
+author: "Sashwat Desai"
+date: "2025-02-25"
+output: html_document
+---
+
+```{r Clear Environment}
+rm(list = ls())
+```
+
+## Loading the Necessary Libraries
+
+```{r Libraries}
+library(tidyverse)      # Data manipulation and visualization
+library(ggplot2)        # Advanced plotting
+library(corrplot)       # Correlation visualization
+library(car)            # For VIF calculations
+library(vcd)            # For categorical data visualization
+library(knitr)          # For nice tables
+library(gridExtra)      # For arranging multiple plots
+```
+
+## [1] DATA LOADING AND PREPARATION
+
+```{r Data Loading and Preparation}
+# Load the data
+covid_data <- read.csv("COVID-19 Survey Student Responses.csv")
+
+# First, let's examine the actual column names to ensure we're using the right ones
+print(names(covid_data))
+
+# Inspect the first few rows to understand the data structure
+head(covid_data)
+
+# Clean approach - create a more general function to find columns by partial name
+find_column <- function(df, pattern) {
+  cols <- grep(pattern, names(df), ignore.case = TRUE, value = TRUE)
+  if(length(cols) == 0) {
+    warning(paste("No column matching pattern:", pattern))
+    return(NULL)
+  }
+  return(cols[1])  # Return the first matching column
+}
+
+# Find health and weight change columns
+health_col <- find_column(covid_data, "health|issue")
+weight_col <- find_column(covid_data, "weight|change")
+meals_col <- find_column(covid_data, "meal")
+
+# Display the found column names
+cat("Health column found:", health_col, "\n")
+cat("Weight column found:", weight_col, "\n")
+cat("Meals column found:", meals_col, "\n")
+
+# Create binary health issue variable more robustly
+if(!is.null(health_col)) {
+  # First check the unique values to better understand the data
+  print(table(covid_data[[health_col]]))
+  
+  # Create binary health issue indicator (Yes/No) - handles various "no" formats
+  covid_data$has_health_issue <- ifelse(
+    grepl("^[Nn][Oo]$|^[Nn][Oo][Nn][Ee]$", covid_data[[health_col]]) | 
+      is.na(covid_data[[health_col]]) | 
+      covid_data[[health_col]] == "", 
+    "No", "Yes")
+  
+  # Convert to factor
+  covid_data$has_health_issue <- factor(covid_data$has_health_issue)
+} else {
+  # Create a default if column not found
+  covid_data$has_health_issue <- factor("Unknown")
+  warning("Health issue column not found, using placeholder")
+}
+
+# Handle weight change column
+if(!is.null(weight_col)) {
+  # Convert to factor
+  covid_data$weight_change <- factor(covid_data[[weight_col]])
+} else {
+  covid_data$weight_change <- factor("Unknown")
+  warning("Weight change column not found, using placeholder")
+}
+
+# Find time variables - look for columns with "time" and specific activities
+sleep_col <- find_column(covid_data, "sleep")
+fitness_col <- find_column(covid_data, "fitness")
+social_media_col <- find_column(covid_data, "social media")
+tv_col <- find_column(covid_data, "tv")
+
+# Display found time columns
+cat("Sleep column found:", sleep_col, "\n")
+cat("Fitness column found:", fitness_col, "\n")
+cat("Social media column found:", social_media_col, "\n")
+cat("TV column found:", tv_col, "\n")
+
+# Create a vector of found time columns
+time_vars <- c(sleep_col, fitness_col, social_media_col, tv_col)
+time_vars <- time_vars[!is.null(time_vars)]  # Remove any NULL values
+
+# Convert time variables to numeric
+for(var in time_vars) {
+  cat("Processing column:", var, "\n")
+  # Handle different formats and convert to numeric
+  covid_data[[var]] <- as.numeric(as.character(covid_data[[var]]))
+  # Print summary to check
+  print(summary(covid_data[[var]]))
+}
+
+# Create dataset for analysis, dropping rows with missing values in key variables
+analysis_cols <- c("has_health_issue", "weight_change", time_vars)
+if(!is.null(meals_col)) {
+  analysis_cols <- c(analysis_cols, meals_col)
+}
+
+# Print the columns we'll use for analysis
+cat("Columns for analysis:", paste(analysis_cols, collapse=", "), "\n")
+
+analysis_data <- covid_data %>%
+  select(all_of(analysis_cols)) %>%
+  drop_na()
+
+# Print dimensions to verify we have data
+cat("Analysis dataset dimensions:", dim(analysis_data)[1], "rows,", 
+    dim(analysis_data)[2], "columns\n")
+```
+
+## [2] EXPLORATORY DATA ANALYSIS
+
+```{r Exploratory Data Analysis}
+# Summary statistics by health issue status
+time_by_health <- analysis_data %>%
+  group_by(has_health_issue) %>%
+  summarise(across(all_of(time_vars), 
+                  list(mean = ~mean(., na.rm = TRUE),
+                       sd = ~sd(., na.rm = TRUE),
+                       median = ~median(., na.rm = TRUE))))
+
+print(time_by_health)
+
+# Summary statistics by weight change
+time_by_weight <- analysis_data %>%
+  group_by(weight_change) %>%
+  summarise(across(all_of(time_vars), 
+                  list(mean = ~mean(., na.rm = TRUE),
+                       sd = ~sd(., na.rm = TRUE),
+                       median = ~median(., na.rm = TRUE))))
+
+print(time_by_weight)
+
+# Boxplots for time variables by health issue
+health_plots <- list()
+for(var in time_vars) {
+  p <- ggplot(analysis_data, aes_string(x = "has_health_issue", y = var, fill = "has_health_issue")) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Distribution of", gsub("\\.", " ", var), "by Health Issue"),
+         x = "Reported Health Issue", y = "Hours per Day") +
+    theme(legend.position = "none")
+  health_plots[[var]] <- p
+}
+
+# Arrange multiple boxplots in a grid
+do.call(grid.arrange, c(health_plots, ncol = 2))
+
+# Correlation matrix of time variables
+cor_matrix <- cor(analysis_data[, time_vars], use = "complete.obs")
+corrplot(cor_matrix, method = "circle", type = "upper", 
+         title = "Correlation Between Time Allocation Variables")
+```
+
+## [3] STATISTICAL TESTS
+
+(a) Chi-Square Test for Association Between Weight Change and Health Issues
+
+```{r Chi-Square Test for Association Between Weight Change and Health Issues}
+calculate_cramers_v <- function(x, y) {
+  tbl <- table(x, y)
+  chi2 <- chisq.test(tbl)$statistic
+  n <- sum(tbl)
+  min_dim <- min(nrow(tbl) - 1, ncol(tbl) - 1)
+  sqrt(chi2 / (n * min_dim))
+}
+
+chisq_result <- chisq.test(table(analysis_data$weight_change, analysis_data$has_health_issue))
+print(chisq_result)
+
+# Calculate Cramer's V for effect size using our custom function
+cramer_v <- calculate_cramers_v(analysis_data$weight_change, analysis_data$has_health_issue)
+cat("Cramer's V:", cramer_v, "\n")
+
+# Visualize the association
+if(require(vcd)) {
+  mosaic(~ weight_change + has_health_issue, data = analysis_data,
+         main = "Association Between Weight Change and Health Issues")
+} else {
+  # Alternative visualization if vcd package is not available
+  ggplot(analysis_data, aes(x = weight_change, fill = has_health_issue)) +
+    geom_bar(position = "fill") +
+    theme_minimal() +
+    labs(title = "Association Between Weight Change and Health Issues",
+         x = "Weight Change", y = "Proportion",
+         fill = "Health Issue Reported")
+}
+```
+
+(b) ANOVA: Compare Time Spent on Activities Between Health Issue Groups
+
+```{r ANOVA: Compare Time Spent on Activities Between Health Issue Groups}
+anova_results <- list()
+for(var in time_vars) {
+  formula <- as.formula(paste(var, "~ has_health_issue"))
+  anova_result <- aov(formula, data = analysis_data)
+  anova_results[[var]] <- anova_result
+  cat("\nANOVA for", gsub("\\.", " ", var), "by Health Issue:\n")
+  print(summary(anova_result))
+}
+```
+
+(c) Logistic Regression: Predict Health Issues From Time Allocation
+
+```{r Logistic Regression: Predict Health Issues From Time Allocation}
+# Update variable names to match the dataset
+logistic_model <- glm(has_health_issue ~ Time.spent.on.sleep + Time.spent.on.fitness + 
+                              Time.spent.on.TV + Number.of.meals.per.day,
+                    family = binomial(link = "logit"), 
+                    data = analysis_data)
+
+summary(logistic_model)
+
+# Check for multicollinearity
+vif(logistic_model)
+
+# Calculate odds ratios
+odds_ratios <- exp(coef(logistic_model))
+# Use tryCatch to handle potential errors in confint
+or_ci <- tryCatch({
+  exp(confint(logistic_model))
+}, error = function(e) {
+  # Use profile likelihood method if default method fails
+  exp(confint.default(logistic_model))
+})
+
+odds_ratio_table <- data.frame(
+  OR = odds_ratios,
+  Lower_CI = or_ci[,1],
+  Upper_CI = or_ci[,2]
+)
+print(odds_ratio_table)
+```
+
+(d) Multinomial Logistic Regression for Weight Change
+
+```{r Multinomial Logistic Regression for Weight Change}
+if(!require(nnet)) {
+  install.packages("nnet")
+  library(nnet)
+}
+
+# Ensure 'weight_change' has a clear reference category
+# Find the most common weight change category to use as reference
+most_common <- names(sort(table(analysis_data$weight_change), decreasing = TRUE))[1]
+analysis_data$weight_change <- relevel(factor(analysis_data$weight_change), ref = most_common)
+
+# Build multinomial model
+multi_model <- multinom(weight_change ~ Time.spent.on.sleep + Time.spent.on.fitness + 
+                        Time.spent.on.TV + Number.of.meals.per.day,
+                     data = analysis_data)
+
+summary(multi_model)
+
+# Calculate p-values (not provided directly by multinom)
+z_scores <- summary(multi_model)$coefficients / summary(multi_model)$standard.errors
+p_values <- (1 - pnorm(abs(z_scores), 0, 1)) * 2
+print(p_values)
+```
+
+## [4] VISUALIZATIONS FOR REPORT
+
+```{r Visualizations for Report}
+# Create effect plots for logistic regression
+# Use the correct column names
+predicted_probs <- data.frame(
+  Time.spent.on.sleep = seq(min(analysis_data$Time.spent.on.sleep, na.rm = TRUE),
+                           max(analysis_data$Time.spent.on.sleep, na.rm = TRUE),
+                           length.out = 100)
+)
+# Add mean values for other predictors
+predicted_probs$Time.spent.on.fitness <- mean(analysis_data$Time.spent.on.fitness, na.rm = TRUE)
+predicted_probs$Time.spent.on.TV <- mean(analysis_data$Time.spent.on.TV, na.rm = TRUE)
+predicted_probs$Number.of.meals.per.day <- median(analysis_data$Number.of.meals.per.day, na.rm = TRUE)
+
+predicted_probs$Health_Issue_Prob <- predict(logistic_model, 
+                                           newdata = predicted_probs,
+                                           type = "response")
+
+# Plot effect of sleep on health issues
+ggplot(predicted_probs, aes(x = Time.spent.on.sleep, y = Health_Issue_Prob)) +
+  geom_line(color = "blue", size = 1.2) +
+  theme_minimal() +
+  labs(title = "Predicted Probability of Health Issues by Sleep Duration",
+       x = "Hours of Sleep per Day",
+       y = "Probability of Reporting Health Issues")
+
+# Create stacked bar chart for meal counts by health issue
+ggplot(analysis_data, aes(x = factor(Number.of.meals.per.day), fill = has_health_issue)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(title = "Proportion of Health Issues by Number of Meals",
+       x = "Number of Meals per Day",
+       y = "Proportion",
+       fill = "Health Issue Reported")
+```
+
+## [5] TABLES FOR REPORT
+
+```{r Tables for Report}
+# Create summary table of means for time variables by health status
+time_summary <- analysis_data %>%
+  group_by(has_health_issue) %>%
+  summarise(across(all_of(time_vars), mean, na.rm = TRUE)) %>%
+  pivot_longer(cols = all_of(time_vars),
+               names_to = "Activity",
+               values_to = "Average_Hours")
+
+# Format for nicer display
+time_summary$Activity <- gsub("\\.", " ", time_summary$Activity)
+time_summary$Activity <- gsub("Time spent on ", "", time_summary$Activity)
+time_summary$Average_Hours <- round(time_summary$Average_Hours, 2)
+
+# Create a summary table for the report
+kable(time_summary, caption = "Average Time Spent on Activities by Health Status")
+
+# ANOVA table for report
+sleep_anova <- anova(anova_results[["Time.spent.on.sleep"]])
+fitness_anova <- anova(anova_results[["Time.spent.on.fitness"]])
+
+kable(sleep_anova, caption = "ANOVA: Sleep Duration by Health Status")
+kable(fitness_anova, caption = "ANOVA: Exercise Time by Health Status")
+
+# Logistic regression results table
+log_summary <- summary(logistic_model)$coefficients
+log_summary <- cbind(log_summary, odds_ratio_table$OR)
+colnames(log_summary)[4] <- "Odds_Ratio"
+kable(log_summary, digits = 3, caption = "Logistic Regression: Predicting Health Issues")
+
+# Save key tables and plots for report
+write.csv(time_summary, "time_by_health_summary.csv")
+write.csv(log_summary, "logistic_regression_results.csv")
+```
