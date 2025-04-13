@@ -2,6 +2,21 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+## Table of Contents
+- [Overview](#overview)
+- [Authors](#authors)
+- [Key Research Areas](#key-research-areas)
+- [Methodology](#methodology)
+- [Key Findings](#key-findings)
+  - [Health and Time Allocation](#health-and-time-allocation)
+  - [Weight Change Dynamics](#weight-change-dynamics)
+  - [Online Learning Experience](#online-learning-experience)
+  - [Digital Media Usage](#digital-media-usage)
+- [Repository Structure](#repository-structure)
+- [Future Work](#future-work)
+- [MATH 7343 Final Project](#math-7343-final-project)
+- [License](#license)
+
 ## Overview
 This repository contains the code, analysis, and findings from our research study examining the impact of the COVID-19 pandemic on student behaviors and well-being. Using data from 1,182 student responses, we investigated the complex interrelationships between time allocation patterns, digital behaviors, and health outcomes during lockdown periods.
 
