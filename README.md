@@ -67,11 +67,14 @@ The study employed multiple statistical approaches to analyze the survey data:
 ## Repository Structure
 
 - **analysis/** - R markdown analysis files
-  - Time Allocation Patterns and Well-Being.Rmd - Analysis of time allocation and health outcomes
   - Analyzing Factors Affecting Online Learning Experience.Rmd - Analysis of online learning experience
+  - Time Allocation Patterns and Well-Being.Rmd - Analysis of time allocation and health outcomes
   - placeholder.md - Placeholder file
 - **dataset/** - Data files
   - COVID-19 Survey Student Responses.csv - Original survey data from 1,182 students
+  - placeholder.md - Placeholder file
+- **report/** - Final project report
+  - Applied_Statistics_Final_Group_Project.pdf - Comprehensive project report
   - placeholder.md - Placeholder file
 - **requirements.txt** - Required R packages and dependencies
 - LICENSE - MIT License
