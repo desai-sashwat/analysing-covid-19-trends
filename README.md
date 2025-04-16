@@ -1,6 +1,6 @@
 # Impact of the COVID-19 Pandemic on Students' Behavior and Well-being
 
-![License: MIT]([https://img.shields.io/badge/License-MIT-yellow.svg](https://opensource.org/license/MIT))
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Table of Contents
 - [Overview](#overview)
